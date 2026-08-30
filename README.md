@@ -1,4 +1,4 @@
-# TimeMark: AI Video Summarizer & QA System
+# TimeMark AI: AI Video Summarizer & QA System
 
 TimeMark is a completely free, open-source web application that allows you to summarize and chat with video content (either YouTube URLs or local video uploads) while maintaining precise timestamps. 
 
