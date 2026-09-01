@@ -1,69 +1,130 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useRef, useEffect } from "react";
+import ReactPlayer from "react-player";
+import UploadForm from "@/components/UploadForm";
+import VideoPlayer from "@/components/VideoPlayer";
+import NotesPanel from "@/components/NotesPanel";
+import ChatInterface from "@/components/ChatInterface";
 
 export default function Home() {
+  const [videoId, setVideoId] = useState<string | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [status, setStatus] = useState<"idle" | "processing" | "completed" | "failed">("idle");
+  const [summary, setSummary] = useState<string>("");
+  
+  const playerRef = useRef<ReactPlayer>(null);
+
+  // Poll for status if processing
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout;
+
+    if (videoId && status === "processing") {
+      intervalId = setInterval(async () => {
+        try {
+          const res = await fetch(`http://localhost:8000/api/video/${videoId}/status`);
+          const data = await res.json();
+
+          if (data.status === "completed") {
+            setStatus("completed");
+            setSummary(data.summary);
+            clearInterval(intervalId);
+          } else if (data.status === "failed") {
+            setStatus("failed");
+            clearInterval(intervalId);
+          }
+        } catch (error) {
+          console.error("Failed to fetch status:", error);
+        }
+      }, 3000); // Poll every 3 seconds
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [videoId, status]);
+
+  const handleVideoProcessed = (id: string, type: string, url?: string) => {
+    setVideoId(id);
+    if (url) setVideoUrl(url);
+    setStatus("processing");
+  };
+
+  const handleSeek = (timestamp: number) => {
+    if (playerRef.current) {
+      playerRef.current.seekTo(timestamp, "seconds");
+      // Optional: scroll up to player
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  const handleReset = () => {
+    setVideoId(null);
+    setVideoUrl(null);
+    setStatus("idle");
+    setSummary("");
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <main className="min-h-screen bg-gray-100 p-4 md:p-8">
+      <div className="max-w-6xl mx-auto space-y-6">
+        <header className="flex items-center justify-between bg-white p-6 rounded-lg shadow-sm">
+          <div>
+            <h1 className="text-3xl font-extrabold text-blue-600">TimeMark</h1>
+            <p className="text-gray-500 mt-1">Free & Local AI Video Summarizer</p>
+          </div>
+          {videoId && (
+            <button 
+              onClick={handleReset}
+              className="text-gray-600 hover:text-blue-600 font-medium"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+              Start Over
+            </button>
+          )}
+        </header>
+
+        {status === "idle" && (
+          <UploadForm onVideoProcessed={handleVideoProcessed} />
+        )}
+
+        {status === "processing" && (
+          <div className="bg-white p-12 rounded-lg shadow-md text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-6"></div>
+            <h2 className="text-2xl font-bold text-gray-800">Processing Video</h2>
+            <p className="text-gray-500 mt-2">
+              Downloading, transcribing, and running AI locally. This may take a few minutes depending on your GPU.
+            </p>
+          </div>
+        )}
+
+        {status === "failed" && (
+          <div className="bg-red-50 p-12 rounded-lg shadow-md text-center border border-red-200">
+            <h2 className="text-2xl font-bold text-red-700">Processing Failed</h2>
+            <p className="text-red-500 mt-2">There was an error processing your video.</p>
+            <button 
+              onClick={handleReset}
+              className="mt-6 bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700"
             >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+              Try Again
+            </button>
+          </div>
+        )}
+
+        {status === "completed" && videoId && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[80vh]">
+            <div className="lg:col-span-2 space-y-6 flex flex-col h-full">
+              <VideoPlayer url={videoUrl || ""} playerRef={playerRef} />
+              <div className="flex-1 min-h-[300px]">
+                <NotesPanel summary={summary} />
+              </div>
+            </div>
+            
+            <div className="lg:col-span-1 h-full min-h-[500px]">
+              <ChatInterface videoId={videoId} onSeek={handleSeek} />
+            </div>
+          </div>
+        )}
+      </div>
+    </main>
   );
 }
