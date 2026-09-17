@@ -1,14 +1,16 @@
-from langchain_community.llms import Ollama
-from langchain.prompts import PromptTemplate
-from langchain_community.document_loaders import Document
+from langchain_groq import ChatGroq
+from langchain_core.prompts import PromptTemplate
+from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 import os
 import json
+from dotenv import load_dotenv
 
-# Setup LLM (Ollama running locally)
-# Assuming Llama 3 is installed: `ollama run llama3`
-llm = Ollama(model="llama3")
+load_dotenv()
+
+# Setup LLM (Groq Cloud API)
+llm = ChatGroq(model="llama3-8b-8192", temperature=0)
 
 # Setup Embeddings (HuggingFace Local)
 embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
