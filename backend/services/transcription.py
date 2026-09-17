@@ -1,40 +1,51 @@
-from faster_whisper import WhisperModel
+from groq import Groq
 import os
+from dotenv import load_dotenv
 
-# Initialize the model (it will download on first run)
-# We use 'base' or 'small' for speed, compute_type 'int8' or 'float16' depending on GPU
-# Since the user has an RTX 3050, we can try float16
-MODEL_SIZE = "small"
-
-def get_transcription_model():
-    # Use GPU if available, fallback to CPU
-    try:
-        model = WhisperModel(MODEL_SIZE, device="cuda", compute_type="float16")
-    except Exception as e:
-        print(f"CUDA initialization failed, falling back to CPU: {e}")
-        model = WhisperModel(MODEL_SIZE, device="cpu", compute_type="int8")
-    return model
+load_dotenv()
 
 def transcribe_audio(audio_path: str):
     """
-    Transcribes audio and returns a list of segments with timestamps.
+    Transcribes audio and returns a list of segments with timestamps using Groq API.
     """
-    model = get_transcription_model()
+    client = Groq()
     
-    segments, info = model.transcribe(audio_path, beam_size=5)
-    
-    print("Detected language '%s' with probability %f" % (info.language, info.language_probability))
+    with open(audio_path, "rb") as file:
+        print("Sending audio to Groq Whisper API...")
+        transcription = client.audio.transcriptions.create(
+            file=(os.path.basename(audio_path), file.read()),
+            model="whisper-large-v3",
+            response_format="verbose_json",
+        )
+        
+    print("Transcription complete.")
     
     transcript_segments = []
-    full_text = ""
+    full_text = transcription.text
     
-    for segment in segments:
+    # Groq's verbose_json response includes segments
+    if hasattr(transcription, 'segments') and transcription.segments:
+        for segment in transcription.segments:
+            # Handle different formats just in case
+            if isinstance(segment, dict):
+                transcript_segments.append({
+                    "start": segment.get("start", 0),
+                    "end": segment.get("end", 0),
+                    "text": segment.get("text", "")
+                })
+            else:
+                transcript_segments.append({
+                    "start": getattr(segment, "start", 0),
+                    "end": getattr(segment, "end", 0),
+                    "text": getattr(segment, "text", "")
+                })
+    else:
+        # Fallback if segments aren't returned properly
         transcript_segments.append({
-            "start": segment.start,
-            "end": segment.end,
-            "text": segment.text
+            "start": 0,
+            "end": 0,
+            "text": full_text
         })
-        full_text += segment.text + " "
         
     return {
         "full_text": full_text.strip(),
