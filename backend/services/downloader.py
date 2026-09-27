@@ -2,6 +2,10 @@ import yt_dlp
 import os
 import uuid
 
+# Add current directory to PATH so ffmpeg and ffprobe can be found
+os.environ["PATH"] += os.pathsep + os.path.abspath(".")
+
+
 def download_youtube_audio(url: str, output_dir: str = "temp") -> str:
     """Downloads audio from a YouTube URL and returns the file path."""
     if not os.path.exists(output_dir):
