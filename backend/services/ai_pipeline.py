@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Setup LLM (Groq Cloud API)
-llm = ChatGroq(model="llama3-8b-8192", temperature=0)
+llm = ChatGroq(model="qwen/qwen3.8-27b", temperature=0)
 
 # Setup Embeddings (HuggingFace Local)
 embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
