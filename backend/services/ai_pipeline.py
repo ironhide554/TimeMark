@@ -76,11 +76,11 @@ def ask_question(video_id: str, question: str):
     """
     vectorstore = Chroma(persist_directory=CHROMA_DB_DIR, embedding_function=embeddings)
     
-    # Retrieve top 3 relevant segments for this specific video
+    # Retrieve top 10 relevant segments for this specific video
     # Note: in a real app, we'd filter by video_id
     retriever = vectorstore.as_retriever(
         search_kwargs={
-            "k": 3,
+            "k": 10,
             "filter": {"video_id": video_id}
         }
     )
@@ -92,10 +92,13 @@ def ask_question(video_id: str, question: str):
         
     # Build context with timestamps
     context = ""
+    # Sort docs by start_time to keep them chronological
+    relevant_docs.sort(key=lambda x: x.metadata['start_time'])
+    
     for doc in relevant_docs:
         context += f"[Timestamp: {doc.metadata['start_time']} seconds]: {doc.page_content}\n"
         
-    # Best guess for the timestamp is the first returned document's start time
+    # Best guess for the timestamp is the first returned document's start time (chronologically or highest relevance)
     best_timestamp = relevant_docs[0].metadata['start_time']
     
     prompt = PromptTemplate(
