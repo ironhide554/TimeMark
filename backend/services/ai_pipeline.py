@@ -35,7 +35,7 @@ Format the output cleanly in markdown.
     
     chain = prompt | llm
     result = chain.invoke({"text": full_text})
-    return result
+    return result.content
 
 def index_transcript_for_rag(video_id: str, segments: list):
     """
@@ -118,6 +118,6 @@ Answer:
     answer = chain.invoke({"context": context, "question": question})
     
     return {
-        "answer": answer,
+        "answer": answer.content,
         "timestamp": int(best_timestamp)
     }
