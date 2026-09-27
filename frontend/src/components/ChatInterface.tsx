@@ -68,26 +68,26 @@ export default function ChatInterface({ videoId, onSeek }: ChatInterfaceProps) {
   };
 
   return (
-    <div className="flex flex-col h-full bg-white shadow-md rounded-lg border border-gray-200">
-      <div className="bg-gray-50 border-b border-gray-200 p-4 rounded-t-lg">
-        <h2 className="text-xl font-bold text-gray-800">Video Q&A</h2>
-        <p className="text-sm text-gray-500">Ask questions, get answers with exact timestamps.</p>
+    <div className="flex flex-col h-full bg-[var(--color-carbon)] rounded-[12px] shadow-[var(--shadow-md)]" style={{ boxShadow: 'rgb(35, 37, 42) 0px 0px 0px 1px inset' }}>
+      <div className="border-b border-[var(--color-smoke)] p-[24px] rounded-t-[12px]">
+        <h2 className="text-[16px] font-[590] tracking-[-0.011em] text-[var(--color-paper)]">Video Q&A</h2>
+        <p className="text-[13px] text-[var(--color-ash)] mt-1">Ask questions, get answers with exact timestamps.</p>
       </div>
       
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-[24px] space-y-[24px]">
         {messages.length === 0 && (
-          <div className="h-full flex items-center justify-center text-gray-400">
+          <div className="h-full flex items-center justify-center text-[13px] text-[var(--color-ash)]">
             Send a message to start chatting!
           </div>
         )}
         {messages.map((msg) => (
           <div key={msg.id} className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}>
             <div 
-              className={`max-w-[85%] rounded-lg p-3 ${
-                msg.role === "user" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-800"
+              className={`max-w-[90%] rounded-[12px] p-[16px] ${
+                msg.role === "user" ? "bg-[var(--color-slate)] text-[var(--color-mist)]" : "bg-transparent text-[var(--color-mist)] px-0"
               }`}
             >
-              <div className="prose prose-sm max-w-none text-inherit">
+              <div className="text-[15px] leading-[1.6] tracking-[-0.011em] [&>p]:mb-3 last:[&>p]:mb-0 [&>strong]:text-[var(--color-paper)] [&>strong]:font-[510]">
                 <ReactMarkdown>{msg.content}</ReactMarkdown>
               </div>
             </div>
@@ -95,9 +95,9 @@ export default function ChatInterface({ videoId, onSeek }: ChatInterfaceProps) {
             {msg.role === "assistant" && msg.timestamp !== undefined && (
               <button
                 onClick={() => onSeek(msg.timestamp!)}
-                className="mt-1 flex items-center text-xs text-blue-600 hover:text-blue-800 font-medium"
+                className="mt-2 inline-flex items-center text-[12px] bg-[rgba(255,255,255,0.05)] text-[var(--color-ash)] rounded-[4px] px-[6px] py-[2px] font-normal hover:bg-[rgba(255,255,255,0.1)] hover:text-[var(--color-mist)] transition-colors"
               >
-                <Clock className="w-3 h-3 mr-1" />
+                <Clock className="w-3 h-3 mr-1.5" />
                 Jump to {formatTime(msg.timestamp)}
               </button>
             )}
@@ -105,29 +105,29 @@ export default function ChatInterface({ videoId, onSeek }: ChatInterfaceProps) {
         ))}
         {loading && (
           <div className="flex items-start">
-            <div className="bg-gray-100 rounded-lg p-3 text-gray-500 animate-pulse">
+            <div className="text-[14px] text-[var(--color-ash)] animate-pulse">
               Thinking...
             </div>
           </div>
         )}
       </div>
 
-      <form onSubmit={handleSend} className="p-4 border-t border-gray-200">
+      <form onSubmit={handleSend} className="p-[24px] border-t border-[var(--color-smoke)]">
         <div className="flex relative">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask a question about the video..."
-            className="flex-1 p-3 pr-12 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-black"
+            placeholder="Ask a question..."
+            className="flex-1 px-[14px] py-[12px] pr-[40px] bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.08)] rounded-[6px] text-[var(--color-mist)] text-[14px] focus:outline-none focus:border-[var(--color-mist)] transition-colors"
             disabled={loading}
           />
           <button
             type="submit"
             disabled={!input.trim() || loading}
-            className="absolute right-2 top-2 p-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-[var(--color-ash)] hover:text-[var(--color-mist)] disabled:opacity-50 transition-colors"
           >
-            <Send className="w-5 h-5" />
+            <Send className="w-[18px] h-[18px]" />
           </button>
         </div>
       </form>

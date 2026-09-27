@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { Upload } from "lucide-react";
 
 export default function UploadForm({ onVideoProcessed }: { onVideoProcessed: (id: string, type: string, url?: string) => void }) {
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleYoutubeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,60 +62,80 @@ export default function UploadForm({ onVideoProcessed }: { onVideoProcessed: (id
   };
 
   return (
-    <div className="bg-white shadow-md rounded-lg p-6 max-w-xl mx-auto mt-10">
-      <h2 className="text-2xl font-bold mb-6 text-gray-800 text-center">Add a Video to Summarize</h2>
+    <div className="bg-[var(--color-carbon)] rounded-[12px] p-[24px] max-w-xl mx-auto mt-10 shadow-[rgb(35,37,42)_0_0_0_1px_inset]">
+      <h2 className="text-[24px] leading-[1.33] tracking-[-0.012em] text-[var(--color-paper)] font-normal mb-8 text-center">Add a Video to Summarize</h2>
       
       {/* YouTube Section */}
-      <form onSubmit={handleYoutubeSubmit} className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">YouTube URL</label>
-        <div className="flex gap-2">
+      <form onSubmit={handleYoutubeSubmit} className="mb-8">
+        <label className="block text-[13px] text-[var(--color-mist)] mb-2">YouTube URL</label>
+        <div className="flex gap-3">
           <input
             type="url"
             value={youtubeUrl}
             onChange={(e) => setYoutubeUrl(e.target.value)}
             placeholder="https://www.youtube.com/watch?v=..."
-            className="flex-1 p-2 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500 text-black"
+            className="flex-1 px-[14px] py-[10px] bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.08)] rounded-[6px] text-[var(--color-mist)] text-[14px] placeholder-[var(--color-fog)] focus:outline-none focus:border-[var(--color-mist)] transition-colors shadow-[rgba(0,0,0,0.2)_0px_0px_12px_0px_inset]"
             required
           />
           <button
             type="submit"
             disabled={loading || !youtubeUrl}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+            className="whitespace-nowrap px-[16px] py-[10px] rounded-[6px] text-[14px] font-[510] tracking-[-0.011em] transition-colors bg-[var(--color-acid-lime)] text-[var(--color-void)] hover:opacity-90 disabled:bg-[rgba(255,255,255,0.05)] disabled:text-[var(--color-ash)] disabled:hover:opacity-100 disabled:cursor-not-allowed shadow-[rgba(0,0,0,0.01)_0px_5px_2px_0px,rgba(0,0,0,0.04)_0px_3px_2px_0px,rgba(0,0,0,0.07)_0px_1px_1px_0px]"
           >
             Process
           </button>
         </div>
       </form>
 
-      <div className="relative flex py-5 items-center">
-        <div className="flex-grow border-t border-gray-300"></div>
-        <span className="flex-shrink-0 mx-4 text-gray-400">OR</span>
-        <div className="flex-grow border-t border-gray-300"></div>
+      <div className="relative flex py-2 items-center mb-6">
+        <div className="flex-grow border-t border-[var(--color-graphite)]"></div>
+        <span className="flex-shrink-0 mx-4 text-[13px] text-[var(--color-ash)]">OR</span>
+        <div className="flex-grow border-t border-[var(--color-graphite)]"></div>
       </div>
 
       {/* Upload Section */}
       <form onSubmit={handleFileUpload}>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Upload Local Video</label>
-        <div className="flex gap-2">
+        <label className="block text-[13px] text-[var(--color-mist)] mb-2">Upload Local Video</label>
+        <div className="flex gap-3">
+          {/* Hidden File Input */}
           <input
             type="file"
             accept="video/*"
+            ref={fileInputRef}
             onChange={(e) => setFile(e.target.files?.[0] || null)}
-            className="flex-1 p-2 border border-gray-300 rounded text-black"
+            className="hidden"
             required
           />
+          
+          {/* Custom File Input Trigger */}
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="flex-1 flex items-center justify-between px-[14px] py-[10px] bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.08)] rounded-[6px] text-[14px] text-left hover:border-[var(--color-mist)] transition-colors shadow-[rgba(0,0,0,0.2)_0px_0px_12px_0px_inset] group"
+          >
+            <span className={`truncate mr-3 ${file ? 'text-[var(--color-paper)]' : 'text-[var(--color-fog)]'}`}>
+              {file ? file.name : "Choose file..."}
+            </span>
+            <Upload className="w-[16px] h-[16px] text-[var(--color-ash)] group-hover:text-[var(--color-mist)] shrink-0" />
+          </button>
+
           <button
             type="submit"
             disabled={loading || !file}
-            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:opacity-50"
+            className="whitespace-nowrap px-[16px] py-[10px] rounded-[6px] text-[14px] font-[510] tracking-[-0.011em] transition-colors bg-[var(--color-acid-lime)] text-[var(--color-void)] hover:opacity-90 disabled:bg-[rgba(255,255,255,0.05)] disabled:text-[var(--color-ash)] disabled:hover:opacity-100 disabled:cursor-not-allowed shadow-[rgba(0,0,0,0.01)_0px_5px_2px_0px,rgba(0,0,0,0.04)_0px_3px_2px_0px,rgba(0,0,0,0.07)_0px_1px_1px_0px]"
           >
             Upload
           </button>
         </div>
       </form>
 
-      {loading && <p className="mt-4 text-blue-600 text-center">Processing video... this may take a while.</p>}
-      {error && <p className="mt-4 text-red-600 text-center">{error}</p>}
+      {loading && (
+        <div className="mt-8 flex justify-center items-center gap-3">
+          <div className="animate-spin rounded-full h-[16px] w-[16px] border-b-[2px] border-[var(--color-acid-lime)]"></div>
+          <p className="text-[var(--color-mist)] text-[14px]">Processing video... this may take a while.</p>
+        </div>
+      )}
+      {error && <p className="mt-8 text-[var(--color-coral-red)] text-[14px] text-center bg-[rgba(235,87,87,0.1)] py-2 px-3 rounded-[6px] border border-[rgba(235,87,87,0.2)]">{error}</p>}
     </div>
   );
 }
