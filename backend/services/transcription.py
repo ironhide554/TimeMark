@@ -1,8 +1,10 @@
-from groq import Groq
 import os
+import json
 import math
 import subprocess
 from dotenv import load_dotenv
+from google import genai
+from google.genai import types
 
 load_dotenv()
 
@@ -22,29 +24,67 @@ def get_audio_duration(audio_path: str) -> float:
         print(f"Error getting duration: {e}")
         return 0.0
 
-def transcribe_audio(audio_path: str):
+def transcribe_with_gemini(audio_path: str):
     """
-    Transcribes audio (chunking if needed) and returns a list of segments with timestamps using Groq API.
+    Transcribes audio using Gemini 3.8 Flash multimodal understanding
+    with timestamp extraction.
     """
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        return None
+        
+    client = genai.Client(api_key=api_key)
+    print(f"Uploading {audio_path} to Gemini Files API...")
+    
+    uploaded_file = client.files.upload(
+        file=audio_path,
+        mime_type="audio/mp3"
+    )
+    
+    print(f"Uploaded audio as {uploaded_file.name}. Transcribing with Gemini 3.8 Flash...")
+    
+    prompt = """
+Transcribe this audio completely into structured JSON.
+Format the output as a JSON object with:
+1. "full_text": the complete transcription text
+2. "segments": an array of objects where each item has:
+   - "start": start time in seconds (float)
+   - "end": end time in seconds (float)
+   - "text": transcribed text segment (string)
+
+Output ONLY valid JSON.
+"""
+
+    response = client.models.generate_content(
+        model=os.getenv("GEMINI_MODEL", "gemini-3-flash-preview"),
+        contents=[
+            uploaded_file,
+            prompt
+        ],
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json"
+        )
+    )
+    
+    # Clean up uploaded file from Gemini storage
+    try:
+        client.files.delete(name=uploaded_file.name)
+    except Exception:
+        pass
+        
+    data = json.loads(response.text)
+    return {
+        "full_text": data.get("full_text", ""),
+        "segments": data.get("segments", [])
+    }
+
+def transcribe_with_groq(audio_path: str):
+    """Fallback transcription with Groq Whisper."""
+    from groq import Groq
     client = Groq()
-    
-    # Groq has a 25MB file size limit. 
-    # We chunk the audio into 10-minute (600 seconds) segments to ensure it fits the limit.
     CHUNK_LENGTH_SEC = 600
-    
-    duration = get_audio_duration(audio_path)
-    print(f"Audio duration: {duration} seconds")
-    
-    transcript_segments = []
-    full_text = ""
-    
-    # If duration couldn't be determined or is small, we can just process as one chunk (or chunk it anyway using ffmpeg segment muxer)
-    # The safest way is to use ffmpeg to split it into 10-minute chunks automatically.
-    
     chunk_prefix = f"{audio_path}_chunk_"
     
-    # Use ffmpeg to split the file into chunks
-    # -f segment -segment_time 600 -c:a mp3 -b:a 64k
     split_command = [
         'ffmpeg',
         '-i', audio_path,
@@ -57,65 +97,53 @@ def transcribe_audio(audio_path: str):
         f"{chunk_prefix}%03d.mp3"
     ]
     
-    print("Chunking audio with ffmpeg...")
     subprocess.run(split_command, check=True)
-    
-    # Now find all generated chunks
     import glob
     chunks = sorted(glob.glob(f"{chunk_prefix}*.mp3"))
     
-    print(f"Split into {len(chunks)} chunks.")
+    transcript_segments = []
+    full_text = ""
     
     for i, chunk_path in enumerate(chunks):
         offset_seconds = i * CHUNK_LENGTH_SEC
-        
         with open(chunk_path, "rb") as file:
-            print(f"Sending chunk {i + 1} to Groq Whisper API...")
-            try:
-                transcription = client.audio.transcriptions.create(
-                    file=(os.path.basename(chunk_path), file.read()),
-                    model="whisper-large-v3",
-                    response_format="verbose_json",
-                )
-            except Exception as e:
-                print(f"Groq API Error on chunk {i + 1}: {e}")
-                file.close()
-                for c in chunks:
-                    if os.path.exists(c):
-                        os.remove(c)
-                raise e
-                
-        # Append full text
-        full_text += getattr(transcription, 'text', '') + " "
+            transcription = client.audio.transcriptions.create(
+                file=(os.path.basename(chunk_path), file.read()),
+                model="whisper-large-v3",
+                response_format="verbose_json",
+            )
         
-        # Append segments with offset
+        full_text += getattr(transcription, 'text', '') + " "
         if hasattr(transcription, 'segments') and transcription.segments:
             for segment in transcription.segments:
-                if isinstance(segment, dict):
-                    transcript_segments.append({
-                        "start": segment.get("start", 0) + offset_seconds,
-                        "end": segment.get("end", 0) + offset_seconds,
-                        "text": segment.get("text", "")
-                    })
-                else:
-                    transcript_segments.append({
-                        "start": getattr(segment, "start", 0) + offset_seconds,
-                        "end": getattr(segment, "end", 0) + offset_seconds,
-                        "text": getattr(segment, "text", "")
-                    })
-        else:
-            # Fallback
-            transcript_segments.append({
-                "start": offset_seconds,
-                "end": offset_seconds + CHUNK_LENGTH_SEC,
-                "text": getattr(transcription, 'text', '')
-            })
-            
+                start_val = segment.get("start", 0) if isinstance(segment, dict) else getattr(segment, "start", 0)
+                end_val = segment.get("end", 0) if isinstance(segment, dict) else getattr(segment, "end", 0)
+                text_val = segment.get("text", "") if isinstance(segment, dict) else getattr(segment, "text", "")
+                transcript_segments.append({
+                    "start": start_val + offset_seconds,
+                    "end": end_val + offset_seconds,
+                    "text": text_val
+                })
         os.remove(chunk_path)
-        
-    print("Transcription complete.")
         
     return {
         "full_text": full_text.strip(),
         "segments": transcript_segments
     }
+
+def transcribe_audio(audio_path: str):
+    """
+    Main transcription entry point: prefers Gemini 3.8 Flash, falls back to Groq.
+    """
+    # 1. Try Gemini 3.8 Flash first if GEMINI_API_KEY is configured
+    if os.getenv("GEMINI_API_KEY"):
+        try:
+            res = transcribe_with_gemini(audio_path)
+            if res and res.get("full_text"):
+                print("Successfully transcribed with Gemini 3.8 Flash.")
+                return res
+        except Exception as e:
+            print(f"Gemini transcription failed ({e}), attempting fallback...")
+
+    # 2. Fallback to Groq Whisper
+    return transcribe_with_groq(audio_path)
