@@ -2,7 +2,21 @@
 
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { Send, Clock } from "lucide-react";
+import { 
+  Send, 
+  Clock, 
+  Sparkles, 
+  Bot, 
+  User, 
+  RotateCcw, 
+  Copy, 
+  Check, 
+  HelpCircle,
+  Database,
+  ArrowUpRight
+} from "lucide-react";
+import { DemoPreset } from "@/data/demoPresets";
+import { API_BASE_URL } from "@/config/api";
 
 interface Message {
   id: string;
@@ -14,12 +28,14 @@ interface Message {
 interface ChatInterfaceProps {
   videoId: string;
   onSeek: (timestamp: number) => void;
+  demoData?: DemoPreset | null;
 }
 
-export default function ChatInterface({ videoId, onSeek }: ChatInterfaceProps) {
+export default function ChatInterface({ videoId, onSeek, demoData }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -27,17 +43,55 @@ export default function ChatInterface({ videoId, onSeek }: ChatInterfaceProps) {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const handleSend = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || loading) return;
+  const handleCopyMessage = (id: string, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
-    const userMessage: Message = { id: Date.now().toString(), role: "user", content: input };
+  const handleSend = async (questionText?: string) => {
+    const query = (questionText || input).trim();
+    if (!query || loading) return;
+
+    const userMessage: Message = { id: Date.now().toString(), role: "user", content: query };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setLoading(true);
 
+    // If in demo preset mode, check if we have matching sample Q&A
+    if (demoData) {
+      setTimeout(() => {
+        const matched = demoData.sampleQA.find(
+          (qa) => qa.question.toLowerCase().includes(query.toLowerCase()) || 
+                  query.toLowerCase().includes(qa.question.toLowerCase().slice(0, 15))
+        );
+
+        if (matched) {
+          const aiMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            role: "assistant",
+            content: matched.answer,
+            timestamp: matched.timestamp,
+          };
+          setMessages((prev) => [...prev, aiMessage]);
+        } else {
+          // General relevant mock response using preset data
+          const firstChap = demoData.chapters[1] || demoData.chapters[0];
+          const aiMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            role: "assistant",
+            content: `Based on the video transcript for **${demoData.title}**, this concept is discussed in detail around chapter: **${firstChap.title}**.\n\nKey context from the video indicates that the system relies on vector-indexed audio segments to match the queried terminology.`,
+            timestamp: firstChap.timestamp,
+          };
+          setMessages((prev) => [...prev, aiMessage]);
+        }
+        setLoading(false);
+      }, 700);
+      return;
+    }
+
     try {
-      const res = await fetch("http://localhost:8000/api/chat", {
+      const res = await fetch(`${API_BASE_URL}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ video_id: videoId, question: userMessage.content }),
@@ -59,7 +113,7 @@ export default function ChatInterface({ videoId, onSeek }: ChatInterfaceProps) {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: `**Error:** ${err.message}`,
+        content: `**API Notice:** ${err.message}. If the backend server is offline, you can try our interactive Demo Presets from the home screen for complete local simulation.`,
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
@@ -67,67 +121,181 @@ export default function ChatInterface({ videoId, onSeek }: ChatInterfaceProps) {
     }
   };
 
+  const handleResetChat = () => {
+    setMessages([]);
+  };
+
+  const suggestedQuestions = demoData?.suggestedQuestions || [
+    "What are the main takeaways of this video?",
+    "Where is the core architecture discussed?",
+    "Summarize the final conclusion"
+  ];
+
   return (
-    <div className="flex flex-col h-full bg-[var(--color-carbon)] rounded-[12px] shadow-[var(--shadow-md)]" style={{ boxShadow: 'rgb(35, 37, 42) 0px 0px 0px 1px inset' }}>
-      <div className="border-b border-[var(--color-smoke)] p-[24px] rounded-t-[12px]">
-        <h2 className="text-[16px] font-[590] tracking-[-0.011em] text-[var(--color-paper)]">Video Q&A</h2>
-        <p className="text-[13px] text-[var(--color-ash)] mt-1">Ask questions, get answers with exact timestamps.</p>
-      </div>
-      
-      <div className="flex-1 overflow-y-auto p-[24px] space-y-[24px]">
-        {messages.length === 0 && (
-          <div className="h-full flex items-center justify-center text-[13px] text-[var(--color-ash)]">
-            Send a message to start chatting!
+    <div className="glass-panel-elevated rounded-2xl h-full flex flex-col overflow-hidden border border-zinc-800">
+      {/* Header */}
+      <div className="p-4 border-b border-zinc-800/80 bg-zinc-950/40 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+            <Sparkles className="w-4 h-4" />
           </div>
+          <div>
+            <h3 className="text-xs font-semibold text-white uppercase tracking-wider flex items-center gap-1.5">
+              <span>Timestamped Q&A</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            </h3>
+            <p className="text-[11px] text-zinc-400">Instant Semantic Search</p>
+          </div>
+        </div>
+
+        {messages.length > 0 && (
+          <button
+            onClick={handleResetChat}
+            className="flex items-center gap-1 text-[11px] text-zinc-400 hover:text-zinc-200 px-2 py-1 rounded-md bg-zinc-900 border border-zinc-800 transition-colors"
+            title="Reset conversation"
+          >
+            <RotateCcw className="w-3 h-3" />
+            <span>Reset</span>
+          </button>
         )}
-        {messages.map((msg) => (
-          <div key={msg.id} className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}>
-            <div 
-              className={`max-w-[90%] rounded-[12px] p-[16px] ${
-                msg.role === "user" ? "bg-[var(--color-slate)] text-[var(--color-mist)]" : "bg-transparent text-[var(--color-mist)] px-0"
-              }`}
-            >
-              <div className="text-[15px] leading-[1.6] tracking-[-0.011em] [&>p]:mb-3 last:[&>p]:mb-0 [&>strong]:text-[var(--color-paper)] [&>strong]:font-[510]">
-                <ReactMarkdown>{msg.content}</ReactMarkdown>
-              </div>
+      </div>
+
+      {/* Chat Messages */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.length === 0 ? (
+          <div className="h-full flex flex-col justify-center items-center text-center p-4 space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 shadow-inner">
+              <Bot className="w-6 h-6 text-emerald-400" />
             </div>
             
-            {msg.role === "assistant" && msg.timestamp !== undefined && (
-              <button
-                onClick={() => onSeek(msg.timestamp!)}
-                className="mt-2 inline-flex items-center text-[12px] bg-[rgba(255,255,255,0.05)] text-[var(--color-ash)] rounded-[4px] px-[6px] py-[2px] font-normal hover:bg-[rgba(255,255,255,0.1)] hover:text-[var(--color-mist)] transition-colors"
-              >
-                <Clock className="w-3 h-3 mr-1.5" />
-                Jump to {formatTime(msg.timestamp)}
-              </button>
-            )}
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-white">Ask anything about the video</p>
+              <p className="text-xs text-zinc-400 max-w-xs leading-relaxed">
+                Answers are grounded in transcribed audio chunks and cite exact timestamps.
+              </p>
+            </div>
+
+            {/* Suggested Starter Chips */}
+            <div className="w-full pt-2 space-y-2">
+              <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">
+                Suggested Questions
+              </p>
+              <div className="flex flex-col gap-1.5">
+                {suggestedQuestions.map((q, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleSend(q)}
+                    className="w-full text-left p-2.5 rounded-xl bg-zinc-900/60 hover:bg-zinc-800/80 border border-zinc-800/80 hover:border-emerald-500/40 text-xs text-zinc-300 hover:text-white transition-all flex items-center justify-between group"
+                  >
+                    <span className="truncate pr-2">{q}</span>
+                    <ArrowUpRight className="w-3.5 h-3.5 text-zinc-500 group-hover:text-emerald-400 shrink-0" />
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
-        ))}
+        ) : (
+          messages.map((msg) => (
+            <div
+              key={msg.id}
+              className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+            >
+              {msg.role === "assistant" && (
+                <div className="w-6 h-6 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 mt-0.5">
+                  <Bot className="w-3.5 h-3.5" />
+                </div>
+              )}
+
+              <div
+                className={`max-w-[85%] rounded-2xl p-3.5 text-xs ${
+                  msg.role === "user"
+                    ? "bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 text-white rounded-br-sm"
+                    : "bg-zinc-900/90 border border-zinc-800/80 text-zinc-200 rounded-bl-sm space-y-2"
+                }`}
+              >
+                <div className="prose prose-invert prose-xs max-w-none leading-relaxed [&>p]:mb-2 last:[&>p]:mb-0 [&>strong]:text-white">
+                  <ReactMarkdown>{msg.content}</ReactMarkdown>
+                </div>
+
+                {/* Timestamp Jump Pill for Assistant Responses */}
+                {msg.role === "assistant" && msg.timestamp !== undefined && (
+                  <div className="pt-2 border-t border-zinc-800/60 flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onSeek(msg.timestamp!)}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 text-[11px] font-semibold transition-all hover:scale-105"
+                    >
+                      <Clock className="w-3 h-3" />
+                      <span>Seek to {formatTime(msg.timestamp)}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleCopyMessage(msg.id, msg.content)}
+                      className="text-zinc-500 hover:text-zinc-300 p-1"
+                      title="Copy response"
+                    >
+                      {copiedId === msg.id ? (
+                        <Check className="w-3 h-3 text-emerald-400" />
+                      ) : (
+                        <Copy className="w-3 h-3" />
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {msg.role === "user" && (
+                <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-300 shrink-0 mt-0.5">
+                  <User className="w-3.5 h-3.5" />
+                </div>
+              )}
+            </div>
+          ))
+        )}
+
         {loading && (
-          <div className="flex items-start">
-            <div className="text-[14px] text-[var(--color-ash)] animate-pulse">
-              Thinking...
+          <div className="flex gap-3 items-start">
+            <div className="w-6 h-6 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 mt-0.5">
+              <Bot className="w-3.5 h-3.5" />
+            </div>
+            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl rounded-bl-sm p-3 flex items-center gap-2 text-xs text-zinc-400">
+              <div className="flex gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+              </div>
+              <span>Searching transcript moments...</span>
             </div>
           </div>
         )}
       </div>
 
-      <form onSubmit={handleSend} className="p-[24px] border-t border-[var(--color-smoke)]">
-        <div className="flex relative">
+      {/* Input Form */}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleSend();
+        }}
+        className="p-3 border-t border-zinc-800/80 bg-zinc-950/60"
+      >
+        <div className="relative flex items-center">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask a question..."
-            className="flex-1 px-[14px] py-[12px] pr-[40px] bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.08)] rounded-[6px] text-[var(--color-mist)] text-[14px] focus:outline-none focus:border-[var(--color-mist)] transition-colors"
+            placeholder="Ask about timestamps or content..."
             disabled={loading}
+            className="w-full pl-3.5 pr-10 py-2.5 bg-zinc-900 border border-zinc-800 focus:border-emerald-500/80 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none transition-all"
           />
           <button
             type="submit"
             disabled={!input.trim() || loading}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-[var(--color-ash)] hover:text-[var(--color-mist)] disabled:opacity-50 transition-colors"
+            className="absolute right-2 p-1.5 text-zinc-400 hover:text-emerald-400 disabled:opacity-30 disabled:hover:text-zinc-400 transition-colors cursor-pointer"
+            title="Send query"
           >
-            <Send className="w-[18px] h-[18px]" />
+            <Send className="w-4 h-4" />
           </button>
         </div>
       </form>
