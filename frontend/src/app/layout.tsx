@@ -9,8 +9,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "TimeMark",
-  description: "Free & Local AI Video Summarizer",
+  title: "TimeMark AI — Neural Video Intelligence & Timestamped Q&A",
+  description: "AI video summarization and conversational intelligence with instant sub-second timestamp seeking and chapter notes.",
 };
 
 export default function RootLayout({
@@ -23,7 +23,7 @@ export default function RootLayout({
       lang="en"
       className={`${inter.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col font-sans text-[var(--color-mist)] bg-[var(--color-void)]">
+      <body className="min-h-full flex flex-col font-sans text-[var(--color-mist)] bg-[var(--color-void)] selection:bg-emerald-500/20 selection:text-emerald-300">
         {children}
       </body>
     </html>

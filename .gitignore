@@ -4,6 +4,9 @@ backend/__pycache__/
 backend/temp/
 backend/chroma_db/
 *.pyc
+.env
+.env*
+*.env
 
 # Frontend (Next.js automatically generates one in /frontend, but we'll add rules here too)
 frontend/node_modules/
